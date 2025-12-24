@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pure Han Korea | Checkout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100">
+
+<!-- HEADER -->
+<header class="bg-white shadow p-4">
+  <div class="max-w-6xl mx-auto flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-red-600">Pure Han Korea</h1>
+    <a href="index.html" class="text-red-600 font-semibold">← Continue Shopping</a>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="max-w-6xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+
+  <!-- CART ITEMS -->
+  <section class="md:col-span-2">
+    <h2 class="text-3xl font-bold mb-4">Your Cart</h2>
+    <div id="cartItems" class="space-y-4"></div>
+  </section>
+
+  <!-- CHECKOUT -->
+  <section class="bg-white p-6 rounded shadow">
+    <h3 class="text-xl font-bold mb-4">Order Summary</h3>
+
+    <div class="flex justify-between mb-4">
+      <span>Total:</span>
+      <span id="totalPrice" class="font-bold text-red-600">Rs 0</span>
+    </div>
+
+    <!-- PAYMENT METHOD -->
+    <h4 class="font-semibold mb-2">Payment Method</h4>
+
+    <select id="paymentMethod" class="w-full border p-2 rounded mb-4">
+      <option value="">Select Payment Method</option>
+      <option value="Cash on Delivery">Cash on Delivery</option>
+      <option value="EasyPaisa">EasyPaisa</option>
+      <option value="JazzCash">JazzCash</option>
+      <option value="Manual Transfer">Manual Bank Transfer</option>
+    </select>
+
+    <!-- PAYMENT INFO -->
+    <div id="paymentInfo" class="text-sm text-gray-600 mb-4 hidden"></div>
+
+    <button
+      onclick="placeOrder()"
+      class="w-full bg-green-600 text-white py-3 rounded text-lg font-semibold">
+      Place Order
+    </button>
+  </section>
+
+</main>
+
+<script>
+// CART FUNCTIONS
+function getCart() {
+  return JSON.parse(localStorage.getItem("cart")) || [];
+}
+
+function saveCart(cart) {
+  localStorage.setItem("cart", JSON.stringify(cart));
+}
+
+function renderCart() {
+  const cart = getCart();
+  const container = document.getElementById("cartItems");
+  const totalEl = document.getElementById("totalPrice");
+
+  container.innerHTML = "";
+  let total = 0;
+
+  if (cart.length === 0) {
+    container.innerHTML = "<p>Your cart is empty.</p>";
+    totalEl.textContent = "Rs 0";
+    return;
+  }
+
+  cart.forEach(item => {
+    total += item.price * item.qty;
+
+    container.innerHTML += `
+      <div class="bg-white p-4 rounded shadow flex justify-between items-center">
+        <div>
+          <h4 class="font-semibold">${item.name}</h4>
+          <p class="text-red-600 font-bold">Rs ${item.price}</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button onclick="updateQty(${item.id}, -1)" class="px-3 py-1 bg-gray-300 rounded">−</button>
+          <span class="font-semibold">${item.qty}</span>
+          <button onclick="updateQty(${item.id}, 1)" class="px-3 py-1 bg-gray-300 rounded">+</button>
+          <button onclick="removeItem(${item.id})" class="ml-4 text-red-600 font-semibold">Remove</button>
+        </div>
+      </div>
+    `;
+  });
+
+  totalEl.textContent = "Rs " + total;
+}
+
+function updateQty(id, change) {
+  let cart = getCart()
+    .map(item => {
+      if (item.id === id) item.qty += change;
+      return item;
+    })
+    .filter(item => item.qty > 0);
+
+  saveCart(cart);
+  renderCart();
+}
+
+function removeItem(id) {
+  saveCart(getCart().filter(item => item.id !== id));
+  renderCart();
+}
+
+// PAYMENT INFO DISPLAY
+document.getElementById("paymentMethod").addEventListener("change", function () {
+  const info = document.getElementById("paymentInfo");
+  info.classList.remove("hidden");
+
+  if (this.value === "EasyPaisa") {
+    info.innerHTML = "Send payment to <b>EasyPaisa: 03XXXXXXXXX</b> and mention Order ID.";
+  } else if (this.value === "JazzCash") {
+    info.innerHTML = "Send payment to <b>JazzCash: 03XXXXXXXXX</b> and mention Order ID.";
+  } else if (this.value === "Manual Transfer") {
+    info.innerHTML = "Transfer to bank and send screenshot via WhatsApp.";
+  } else {
+    info.classList.add("hidden");
+  }
+});
+
+// PLACE ORDER
+async function placeOrder() {
+  const cart = getCart();
+  const paymentMethod = document.getElementById("paymentMethod").value;
+
+  if (!paymentMethod) {
+    alert("Please select a payment method");
+    return;
+  }
+
+  if (cart.length === 0) {
+    alert("Your cart is empty");
+    return;
+  }
+
+  const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+  const res = await fetch("http://localhost:5000/api/orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      items: cart,
+      total,
+      paymentMethod
+    })
+  });
+
+  const data = await res.json();
+
+  if (res.ok) {
+    alert("Order placed successfully!");
+    localStorage.removeItem("cart");
+    window.location.href = "index.html";
+  } else {
+    alert(data.message || "Order failed");
+  }
+}
+
+renderCart();
+</script>
+
+</body>
+</html>
+

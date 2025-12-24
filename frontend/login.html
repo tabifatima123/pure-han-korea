@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pure Han Korea | Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+<div class="bg-white rounded-xl shadow p-8">
+    <h1 class="text-2xl font-bold text-center text-red-600 mb-6">
+      Pure Han Korea
+    </h1>
+
+    <input id="name" type="text" placeholder="Name (only for register)"
+      class="w-full mb-3 p-2 border rounded">
+
+    <input id="email" type="email" placeholder="Email"
+      class="w-full mb-3 p-2 border rounded">
+
+    <input id="password" type="password" placeholder="Password"
+      class="w-full mb-4 p-2 border rounded">
+
+    <button onclick="register()"
+      class="w-full bg-black text-white py-2 rounded mb-3">
+      Register
+    </button>
+
+    <button onclick="login()"
+      class="w-full bg-red-600 text-white py-2 rounded">
+      Login
+    </button>
+
+    <p id="msg" class="text-center mt-4 text-sm"></p>
+  </div>
+
+<script>
+const API = "http://localhost:5000/api/auth";
+
+async function register() {
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const res = await fetch(`${API}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password })
+  });
+
+  const data = await res.json();
+  document.getElementById("msg").textContent = data.message || "Registered";
+}
+
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const res = await fetch(`${API}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json();
+
+  if (res.ok) {
+    localStorage.setItem("user", JSON.stringify(data.user));
+    window.location.href = "index.html";
+  } else {
+    document.getElementById("msg").textContent = data.message;
+  }
+}
+</script>
+
+</body>
+</html>
+

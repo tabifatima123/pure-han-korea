@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pure Han Korea – Checkout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100">
+
+<div class="max-w-4xl mx-auto p-6 space-y-6">
+
+<!-- ================= LOGIN SECTION ================= -->
+<div id="loginSection" class="bg-white p-4 rounded shadow hidden">
+  <h2 class="text-xl font-bold mb-3">Login</h2>
+
+  <input id="email" placeholder="Email"
+    class="w-full p-2 border rounded mb-2">
+
+  <input id="password" type="password" placeholder="Password"
+    class="w-full p-2 border rounded mb-2">
+
+  <button onclick="login()"
+    class="bg-red-600 text-white px-4 py-2 rounded">
+    Login
+  </button>
+</div>
+
+<!-- ================= CART SECTION ================= -->
+<div id="cartSection" class="bg-white p-4 rounded shadow hidden">
+  <h2 class="text-xl font-bold mb-3">Your Cart</h2>
+  <div id="cartItems"></div>
+  <p class="font-bold mt-2">Total: Rs <span id="total"></span></p>
+</div>
+
+<!-- ================= PAYMENT SECTION ================= -->
+<div id="paymentSection" class="bg-white p-4 rounded shadow hidden">
+  <h2 class="text-xl font-bold mb-3">Payment Method</h2>
+
+  <select id="paymentMethod"
+    class="w-full p-2 border rounded mb-2">
+    <option value="">Select payment</option>
+    <option value="COD">Cash on Delivery</option>
+    <option value="EasyPaisa">EasyPaisa</option>
+    <option value="JazzCash">JazzCash</option>
+  </select>
+
+  <div id="paymentInfo" class="text-sm text-gray-600"></div>
+</div>
+
+<!-- ================= PLACE ORDER ================= -->
+<button id="orderBtn" onclick="placeOrder()"
+  class="bg-green-600 text-white px-6 py-3 rounded hidden">
+  Place Order
+</button>
+
+</div>
+
+<script>
+const BASE_URL = "https://pure-han-korea-production.up.railway.app";
+
+/* ================= INIT ================= */
+const user = JSON.parse(localStorage.getItem("user"));
+const cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+if (!user) {
+  document.getElementById("loginSection").classList.remove("hidden");
+} else {
+  showCart();
+}
+
+/* ================= LOGIN ================= */
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const res = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json();
+
+  if (res.ok) {
+    localStorage.setItem("user", JSON.stringify(data.user));
+    location.reload();
+  } else {
+    alert("Login failed");
+  }
+}
+
+/* ================= CART ================= */
+function showCart() {
+  document.getElementById("cartSection").classList.remove("hidden");
+  document.getElementById("paymentSection").classList.remove("hidden");
+  document.getElementById("orderBtn").classList.remove("hidden");
+
+  const container = document.getElementById("cartItems");
+  let total = 0;
+
+  container.innerHTML = cart.map(i => {
+    total += i.price * i.qty;
+    return `<p>${i.name} × ${i.qty}</p>`;
+  }).join("");
+
+  document.getElementById("total").textContent = total;
+}
+
+/* ================= PAYMENT INFO ================= */
+document.getElementById("paymentMethod").onchange = e => {
+  const info = document.getElementById("paymentInfo");
+
+  if (e.target.value === "EasyPaisa")
+    info.textContent = "Send payment to EasyPaisa: 03XXXXXXXXX";
+
+  else if (e.target.value === "JazzCash")
+    info.textContent = "Send payment to JazzCash: 03XXXXXXXXX";
+
+  else
+    info.textContent = "";
+};
+
+/* ================= PLACE ORDER ================= */
+async function placeOrder() {
+  const method = document.getElementById("paymentMethod").value;
+  const image = document.getElementById("paymentImage").files[0];
+
+  if (!method) {
+    alert("Select payment method");
+    return;
+  }
+
+  if ((method === "EasyPaisa" || method === "JazzCash") && !image) {
+    alert("Please upload payment screenshot");
+    return;
+  }
+
+  const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+  /* CREATE ORDER */
+  const res = await fetch(`${BASE_URL}/api/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      items: cart,
+      total,
+      paymentMethod: method
+    })
+  });
+
+  const order = await res.json();
+
+  /* UPLOAD SCREENSHOT */
+  if (image) {
+    const formData = new FormData();
+    formData.append("image", image);
+
+    await fetch(`${BASE_URL}/api/orders/${order._id}/payment-proof`, {
+      method: "POST",
+      body: formData
+    });
+  }
+
+  alert("Order placed! Waiting for payment verification.");
+  localStorage.removeItem("cart");
+  location.href = "index.html";
+}
+</script>
+<select id="paymentMethod"
+  class="w-full p-2 border rounded mb-2">
+  <option value="">Select payment</option>
+  <option value="COD">Cash on Delivery</option>
+  <option value="EasyPaisa">EasyPaisa</option>
+  <option value="JazzCash">JazzCash</option>
+</select>
+
+<div id="paymentInfo" class="text-sm text-gray-600"></div>
+
+<input type="file" id="paymentImage"
+  accept="image/*"
+  class="hidden mt-2">
+
+</body>
+</html>

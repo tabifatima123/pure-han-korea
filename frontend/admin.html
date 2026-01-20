@@ -1,78 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Panel | Pure Han Korea</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body class="bg-gray-100">
+  <header class="bg-black text-white p-4">
+    <h1 class="text-2xl font-bold text-center">Pure Han Korea — Admin Panel</h1>
+  </header>
 
-<header class="bg-black text-white p-4">
-  <h1 class="text-2xl font-bold text-center">Pure Han Korea — Admin Panel</h1>
-</header>
+  <main class="max-w-6xl mx-auto p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-2xl font-bold">Orders</h2>
 
-<main class="max-w-6xl mx-auto p-6">
-
-  <h2 class="text-2xl font-bold mb-4">Orders</h2>
-
-  <div id="orders" class="space-y-4"></div>
-
-</main>
-
-<script>
-const API = "http://localhost:5000/api/orders";
-
-async function loadOrders() {
-  const res = await fetch(API);
-  const orders = await res.json();
-  const container = document.getElementById("orders");
-
-  if (orders.length === 0) {
-    container.innerHTML = "<p>No orders yet.</p>";
-    return;
-  }
-
-  container.innerHTML = orders.map(o => `
-    <div class="bg-white p-4 rounded shadow">
-      <p><b>Order ID:</b> ${o.id}</p>
-      <p><b>Total:</b> Rs ${o.total}</p>
-      <p><b>Payment:</b> ${o.paymentMethod}</p>
-      <p><b>Status:</b> ${o.status}</p>
-
-      <div class="mt-3 flex gap-2">
-        <button onclick="updateStatus(${o.id}, 'Approved')"
-          class="bg-green-600 text-white px-3 py-1 rounded">
-          Approve
+      <div class="flex gap-2">
+        <button id="btnRefresh" class="bg-black text-white px-4 py-2 rounded">
+          Refresh
         </button>
-
-        <button onclick="updateStatus(${o.id}, 'Rejected')"
-          class="bg-red-600 text-white px-3 py-1 rounded">
-          Reject
+        <button id="btnDebug" class="bg-gray-700 text-white px-4 py-2 rounded">
+          Debug (Console)
         </button>
       </div>
     </div>
-  `).join("");
-}
 
-async function updateStatus(id, status) {
-  await fetch(`${API}/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status })
-  });
-  loadOrders();
-}
+    <div id="statusBar" class="mb-4 text-sm"></div>
+    <div id="orders" class="space-y-4"></div>
+  </main>
 
-loadOrders();
-</script>
 <script>
-const user = JSON.parse(localStorage.getItem("user"));
+/* ================= CONFIG =================
+   Production (Railway): uses your deployed backend
+   Local: use when you run backend locally
+*/
+const BASE_URL = "https://pure-han-korea-production.up.railway.app";
+// const BASE_URL = "http://localhost:5000"; // <- enable this if you run locally
 
+const API_ORDERS = `${BASE_URL}/api/orders`;
+
+function getToken() {
+  return localStorage.getItem("token");
+}
+
+function getUser() {
+  try { return JSON.parse(localStorage.getItem("user")); }
+  catch { return null; }
+}
+
+/* ================= AUTH CHECK ================= */
+const user = getUser();
 if (!user || user.role !== "admin") {
   alert("Access denied. Admin only.");
   window.location.href = "login.html";
 }
+
+/* ================= UI HELPERS ================= */
+const statusBar = document.getElementById("statusBar");
+const container = document.getElementById("orders");
+
+function setStatus(msg, isError=false) {
+  statusBar.innerHTML = `<p class="${isError ? "text-red-700" : "text-green-700"}">${msg}</p>`;
+}
+
+/* ================= LOAD ORDERS ================= */
+async function loadOrders() {
+  const token = getToken();
+  if (!token) {
+    setStatus("Token not found. Please login again (admin).", true);
+    container.innerHTML = "";
+    return;
+  }
+
+  setStatus("Loading orders...");
+
+  try {
+    const res = await fetch(API_ORDERS, {
+      headers: {
+        Authorization: "Bearer " + token
+      }
+    });
+
+    // If auth fails, show clean message
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setStatus(`Failed to load orders (${res.status}). ${err.message || ""}`, true);
+      container.innerHTML = "";
+      return;
+    }
+
+    const orders = await res.json();
+
+    if (!Array.isArray(orders) || orders.length === 0) {
+      setStatus("No orders yet.");
+      container.innerHTML = `<div class="bg-white p-4 rounded shadow"><p>No orders yet.</p></div>`;
+      return;
+    }
+
+    setStatus(`Loaded ${orders.length} order(s).`);
+
+    container.innerHTML = orders.map(o => `
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div>
+            <p><b>Order ID:</b> ${o._id}</p>
+            <p><b>Total:</b> Rs ${o.total}</p>
+            <p><b>Payment Method:</b> ${o.paymentMethod || "cod"}</p>
+            <p><b>Payment Status:</b> ${o.paymentStatus || "Pending"}</p>
+            <p><b>Order Status:</b> ${o.orderStatus || "Pending"}</p>
+            <p class="text-sm text-gray-600"><b>Created:</b> ${o.createdAt ? new Date(o.createdAt).toLocaleString() : ""}</p>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="updatePayment('${o._id}', 'Verified')"
+              class="bg-blue-600 text-white px-3 py-1 rounded">
+              Payment Verified
+            </button>
+
+            <button onclick="updatePayment('${o._id}', 'Failed')"
+              class="bg-gray-600 text-white px-3 py-1 rounded">
+              Payment Failed
+            </button>
+
+            <button onclick="updateOrderStatus('${o._id}', 'Processing')"
+              class="bg-yellow-600 text-white px-3 py-1 rounded">
+              Processing
+            </button>
+
+            <button onclick="updateOrderStatus('${o._id}', 'Shipped')"
+              class="bg-purple-600 text-white px-3 py-1 rounded">
+              Shipped
+            </button>
+
+            <button onclick="updateOrderStatus('${o._id}', 'Delivered')"
+              class="bg-green-600 text-white px-3 py-1 rounded">
+              Delivered
+            </button>
+
+            <a href="${BASE_URL}/api/orders/${o._id}/invoice"
+               target="_blank"
+               class="bg-black text-white px-3 py-1 rounded inline-block">
+              Invoice PDF
+            </a>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <p class="font-semibold">Items:</p>
+          <ul class="list-disc ml-5 text-sm">
+            ${(o.items || []).map(it => `<li>${it.name} — qty ${it.qty} — Rs ${it.price}</li>`).join("")}
+          </ul>
+        </div>
+      </div>
+    `).join("");
+
+  } catch (e) {
+    setStatus("Network error while loading orders. Check internet / backend URL.", true);
+    container.innerHTML = "";
+  }
+}
+
+/* ================= UPDATE PAYMENT ================= */
+async function updatePayment(id, status) {
+  const token = getToken();
+  if (!token) return alert("No token. Login again.");
+
+  await fetch(`${API_ORDERS}/${id}/payment`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token
+    },
+    body: JSON.stringify({ paymentStatus: status })
+  });
+
+  loadOrders();
+}
+
+/* ================= UPDATE ORDER STATUS ================= */
+async function updateOrderStatus(id, status) {
+  const token = getToken();
+  if (!token) return alert("No token. Login again.");
+
+  await fetch(`${API_ORDERS}/${id}/status`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token
+    },
+    body: JSON.stringify({ orderStatus: status })
+  });
+
+  loadOrders();
+}
+
+/* ================= DEBUG SCRIPT YOU REQUESTED ================= */
+function debugOrdersToConsole() {
+  fetch(`${BASE_URL}/api/orders`, {
+    headers: {
+      Authorization: "Bearer " + localStorage.getItem("token")
+    }
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert("Check Console for Orders");
+    console.log("ORDERS:", data);
+  })
+  .catch(err => {
+    console.error("DEBUG ERROR:", err);
+    alert("Debug failed. Check Console.");
+  });
+}
+
+/* ================= EVENTS ================= */
+document.getElementById("btnRefresh").addEventListener("click", loadOrders);
+document.getElementById("btnDebug").addEventListener("click", debugOrdersToConsole);
+
+/* ================= INIT ================= */
+loadOrders();
 </script>
 
 </body>

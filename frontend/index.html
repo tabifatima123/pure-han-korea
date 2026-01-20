@@ -11,79 +11,92 @@
 
 <body class="bg-gray-50">
 
-  <!-- HEADER -->
-  <header class="bg-white shadow">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-red-600">Pure Han Korea</h1>
-      <p class="text-sm text-gray-600">Authentic Korean Products in Pakistan</p>
-    </div>
-  </header>
+<!-- HEADER -->
+ <div class="flex gap-4">
+  <a href="login.html" class="text-red-600 font-semibold">Login</a>
+  <a href="login.html" class="bg-red-600 text-white px-4 py-1 rounded">
+    Sign Up
+  </a>
+  <a href="cart.html" class="font-semibold">Cart</a>
+</div>
 
-  <!-- HERO -->
-  <section class="bg-gradient-to-r from-red-500 to-pink-500 text-white py-20">
-    <div class="max-w-4xl mx-auto text-center">
-      <h2 class="text-4xl font-bold mb-4">Pure Korean Quality, Delivered to You</h2>
-      <p class="text-lg mb-6">From Seoul to Pakistan</p>
-      <a href="#products" class="bg-white text-red-600 px-6 py-3 rounded font-semibold">
-        Shop Now
-      </a>
-    </div>
-  </section>
-
-  <!-- PRODUCTS -->
-  <section id="products" class="max-w-7xl mx-auto px-6 py-12">
-    <h3 class="text-2xl font-bold mb-6">Our Collection</h3>
-
-    <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-      <!-- Products will load here -->
-    </div>
-  </section>
-
-  <!-- FOOTER -->
-  <footer class="bg-gray-900 text-white text-center py-6">
-    © 2025 Pure Han Korea — All Rights Reserved
-  </footer>
-
-  <!-- SCRIPT -->
-  <script>
-    async function loadProducts() {
-      try {
-        const res = await fetch("http://localhost:5000/api/products");
-        const products = await res.json();
-
-        const container = document.getElementById("product-list");
-
-        if (products.length === 0) {
-          container.innerHTML = "<p>No products yet.</p>";
-          return;
-        }
-
-        container.innerHTML = products.map(p => `
-  <div class="bg-white p-4 shadow rounded">
-    <img src="${p.image}" class="mb-3 rounded">
-    <h4 class="font-semibold">${p.name}</h4>
-    <p class="text-red-600 font-bold">Rs ${p.price}</p>
-
-    <button
-      onclick='addToCart(${JSON.stringify(p)})'
-      class="mt-3 w-full bg-red-600 text-white py-2 rounded">
-      Add to Cart
-    </button>
+<header class="bg-white shadow">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-red-600">Pure Han Korea</h1>
+    <a href="cart.html" class="text-red-600 font-semibold">
+      View Cart
+    </a>
   </div>
-`).join("");
+</header>
 
+<!-- HERO -->
+<section class="bg-gradient-to-r from-red-500 to-pink-500 text-white py-20">
+  <div class="max-w-4xl mx-auto text-center">
+    <h2 class="text-4xl font-bold mb-4">
+      Pure Korean Quality, Delivered to You
+    </h2>
+    <p class="text-lg mb-6">From Seoul to Pakistan</p>
+    <a href="#products"
+       class="bg-white text-red-600 px-6 py-3 rounded font-semibold">
+      Shop Now
+    </a>
+  </div>
+</section>
 
-      } catch (err) {
-        console.error(err);
-      }
+<!-- PRODUCTS -->
+<section id="products" class="max-w-7xl mx-auto px-6 py-12">
+  <h3 class="text-2xl font-bold mb-6">Our Collection</h3>
+
+  <div id="product-list"
+       class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="bg-gray-900 text-white text-center py-6">
+  © 2025 Pure Han Korea — All Rights Reserved
+</footer>
+
+<script>
+/* ================= CONFIG ================= */
+const BASE_URL = "https://pure-han-korea-production.up.railway.app";
+
+/* ================= LOAD PRODUCTS ================= */
+async function loadProducts() {
+  try {
+    const res = await fetch(`${BASE_URL}/api/products`);
+    const products = await res.json();
+    const container = document.getElementById("product-list");
+
+    if (!products.length) {
+      container.innerHTML = "<p>No products yet.</p>";
+      return;
     }
 
-    loadProducts();
-  </script>
-  <script>
+    container.innerHTML = products.map(p => `
+      <div class="bg-white p-4 shadow rounded">
+        <img src="${p.image}" alt="${p.name}"
+             class="mb-3 rounded h-48 w-full object-cover">
+
+        <h4 class="font-semibold">${p.name}</h4>
+        <p class="text-red-600 font-bold">Rs ${p.price}</p>
+
+        <button
+          onclick='addToCart(${JSON.stringify(p)})'
+          class="mt-3 w-full bg-red-600 text-white py-2 rounded">
+          Add to Cart
+        </button>
+      </div>
+    `).join("");
+
+  } catch (err) {
+    console.error("Failed to load products", err);
+  }
+}
+
+/* ================= CART ================= */
 function addToCart(product) {
   let cart = JSON.parse(localStorage.getItem("cart")) || [];
-
   const existing = cart.find(p => p.id === product.id);
 
   if (existing) {
@@ -95,10 +108,10 @@ function addToCart(product) {
   localStorage.setItem("cart", JSON.stringify(cart));
   alert("Product added to cart");
 }
-</script>
 
+/* ================= INIT ================= */
+loadProducts();
+</script>
 
 </body>
 </html>
-
-

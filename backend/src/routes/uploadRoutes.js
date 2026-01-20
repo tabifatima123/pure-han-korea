@@ -5,6 +5,8 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 
 const router = express.Router();
+router.get("/ping", (req, res) => res.json({ ok: true }));
+
 
 // Resolve __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);

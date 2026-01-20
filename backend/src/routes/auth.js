@@ -11,6 +11,10 @@ router.post("/register", (req, res) => {
   if (!name || !email || !password) {
     return res.status(400).json({ message: "All fields required" });
   }
+  const authHeader = req.headers.authorization || "";
+const token = authHeader.startsWith("Bearer ")
+  ? authHeader.split(" ")[1]
+  : null;
 
   const exists = users.find(u => u.email === email);
   if (exists) {

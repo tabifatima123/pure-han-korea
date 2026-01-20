@@ -50,5 +50,13 @@ async function startServer() {
 
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 }
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
+
 
 startServer();

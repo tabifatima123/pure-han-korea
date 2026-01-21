@@ -14,14 +14,10 @@
     <!-- Add Product Form -->
     <form class="bg-white p-4 rounded shadow space-y-3 max-w-md">
       <input id="pname" placeholder="Product Name" required class="w-full p-2 border rounded" />
-
       <input id="pprice" type="number" placeholder="Price" required class="w-full p-2 border rounded" />
-
       <input id="pcategory" placeholder="Category (e.g., Skincare)" class="w-full p-2 border rounded" />
 
-      <!-- ✅ Description -->
-      <textarea id="pdesc" placeholder="Product Description"
-        class="w-full p-2 border rounded" rows="4"></textarea>
+      <textarea id="pdesc" placeholder="Product Description" class="w-full p-2 border rounded" rows="4"></textarea>
 
       <input id="pimageFile" type="file" accept="image/*" class="w-full p-2 border rounded bg-white" />
       <p class="text-xs text-gray-500">Optional: choose an image file (jpg/png/webp).</p>
@@ -40,23 +36,33 @@
   </div>
 
   <script>
-    // Use one BASE_URL. Switch when needed.
     const BASE_URL = "https://pure-han-korea-production.up.railway.app";
-    
-
     const API = `${BASE_URL}/api`;
 
-    // ===== Admin gate =====
-    const token = localStorage.getItem("token");
+    // ===== Auth helpers =====
+    function getCleanToken() {
+      const raw = localStorage.getItem("token") || "";
+      return raw.startsWith("Bearer ") ? raw.slice(7) : raw;
+    }
+
     const user = JSON.parse(localStorage.getItem("user") || "null");
 
-    if (!token || !user || user.role !== "admin") {
+    if (!getCleanToken() || !user || user.role !== "admin") {
       alert("Access denied. Admin only.");
       window.location.href = "login.html";
     }
 
     function setMsg(text) {
       document.getElementById("msg").textContent = text || "";
+    }
+
+    // ✅ Fix: handle both relative "/uploads/..." and full "https://..."
+    function resolveImageUrl(imageValue) {
+      if (!imageValue) return "";
+      const v = String(imageValue).trim();
+      if (v.startsWith("http://") || v.startsWith("https://")) return v;
+      if (v.startsWith("/")) return BASE_URL + v;
+      return BASE_URL + "/" + v;
     }
 
     // ===== Load products list =====
@@ -66,10 +72,10 @@
 
       try {
         const res = await fetch(`${API}/products`);
-        const products = await res.json();
+        const products = await res.json().catch(() => null);
 
         if (!res.ok) {
-          box.innerHTML = "Failed to load products.";
+          box.innerHTML = (products?.message || "Failed to load products.");
           return;
         }
 
@@ -78,32 +84,36 @@
           return;
         }
 
-        box.innerHTML = products.map(p => `
-  <div class="border rounded p-3 bg-white">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        ${p.image
-          ? `<img src="${BASE_URL}${p.image}" class="w-14 h-14 object-cover rounded border" />`
-          : `<div class="w-14 h-14 rounded border bg-gray-50 flex items-center justify-center text-xs text-gray-400">No Img</div>`
-        }
+        box.innerHTML = products.map(p => {
+          const imgUrl = resolveImageUrl(p.image);
 
-        <div>
-          <div class="font-semibold">${p.name}</div>
-          <div class="text-sm text-gray-600">PKR ${p.price} • ${p.category || "General"}</div>
-          ${p.description ? `<div class="text-sm text-gray-700 mt-1">${p.description}</div>` : ""}
-          <div class="text-xs text-gray-400 mt-1">${p._id || ""}</div>
-        </div>
-      </div>
+          return `
+            <div class="border rounded p-3 bg-white">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  ${imgUrl
+                    ? `<img src="${imgUrl}" class="w-14 h-14 object-cover rounded border" />`
+                    : `<div class="w-14 h-14 rounded border bg-gray-50 flex items-center justify-center text-xs text-gray-400">No Img</div>`
+                  }
 
-      <button
-        class="bg-red-600 text-white px-3 py-2 rounded"
-        onclick="deleteProduct('${p._id}')"
-      >
-        Delete
-      </button>
-    </div>
-  </div>
-`).join("");
+                  <div>
+                    <div class="font-semibold">${p.name}</div>
+                    <div class="text-sm text-gray-600">PKR ${p.price} • ${p.category || "General"}</div>
+                    ${p.description ? `<div class="text-sm text-gray-700 mt-1">${p.description}</div>` : ""}
+                    <div class="text-xs text-gray-400 mt-1">${p._id || ""}</div>
+                  </div>
+                </div>
+
+                <button
+                  class="bg-red-600 text-white px-3 py-2 rounded"
+                  onclick="deleteProduct('${p._id}')"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          `;
+        }).join("");
 
       } catch (e) {
         box.innerHTML = "Network error while loading products.";
@@ -117,7 +127,9 @@
       try {
         const res = await fetch(`${API}/products/${id}`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` }
+          headers: {
+            Authorization: `Bearer ${getCleanToken()}`
+          }
         });
 
         const data = await res.json().catch(() => ({}));
@@ -134,7 +146,6 @@
         alert("Network error: " + e.message);
       }
     }
-
     window.deleteProduct = deleteProduct;
 
     // ===== Add product (with optional image upload) =====
@@ -152,34 +163,40 @@
         return;
       }
 
-      // 1) Optional image upload
+      // ✅ Keep image stored as RELATIVE path ("/uploads/...")
       let image = "";
       const file = document.getElementById("pimageFile")?.files?.[0];
 
+      // 1) Upload image (optional)
       if (file) {
         const fd = new FormData();
         fd.append("image", file);
 
-        const uploadRes = await fetch(`${API}/upload`, {
-          method: "POST",
-          body: fd
-        });
+        let uploadRes;
+        try {
+          // ✅ Correct endpoint: /api/upload
+          uploadRes = await fetch(`${API}/upload`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${getCleanToken()}`
+              // Do NOT set Content-Type manually for FormData
+            },
+            body: fd
+          });
+        } catch (err) {
+          setMsg("Upload request failed: " + err.message);
+          return;
+        }
 
-       const rawText = await uploadRes.text();
-let uploadData = {};
-try { uploadData = JSON.parse(rawText); } catch (e) {}
+        const uploadData = await uploadRes.json().catch(() => ({}));
 
-if (!uploadRes.ok) {
-  setMsg(
-    (uploadData.message || rawText || "Image upload failed") +
-    ` (Status: ${uploadRes.status})`
-  );
-  return;
-}
+        if (!uploadRes.ok) {
+          setMsg((uploadData.message || "Image upload failed") + ` (Status: ${uploadRes.status})`);
+          return;
+        }
 
-
-        // your backend returns: { url: "/uploads/filename.jpg" }
-        image = uploadData.url;
+        // expected: { url: "/uploads/....jpg" }
+        image = uploadData.url || "";
       }
 
       // 2) Create product
@@ -188,7 +205,7 @@ if (!uploadRes.ok) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${getCleanToken()}`
           },
           body: JSON.stringify({ name, price, category, description, image })
         });
@@ -202,7 +219,6 @@ if (!uploadRes.ok) {
 
         alert("Product added ✅");
 
-        // clear inputs
         document.getElementById("pname").value = "";
         document.getElementById("pprice").value = "";
         document.getElementById("pcategory").value = "";

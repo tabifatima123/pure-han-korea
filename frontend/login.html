@@ -41,6 +41,7 @@
 
     <!-- Register -->
     <button
+      type="button"
       onclick="registerUser()"
       class="w-full bg-black text-white py-2 rounded mb-3 hover:opacity-90"
     >
@@ -49,6 +50,7 @@
 
     <!-- Login -->
     <button
+      type="button"
       onclick="loginUser()"
       class="w-full bg-red-600 text-white py-2 rounded hover:opacity-90"
     >
@@ -62,9 +64,9 @@
   </div>
 
   <script>
-     localStorage.clear(); 
     /* ================= CONFIG ================= */
-    const BASE_URL = "http://localhost:5000";
+    // ✅ Use Railway (production backend)
+    const BASE_URL = "https://pure-han-korea-production.up.railway.app";
     const API = `${BASE_URL}/api/auth`;
 
     /* ================= HELPERS ================= */
@@ -73,7 +75,13 @@
     }
 
     function saveAuth(data) {
-      localStorage.setItem("token", data.token);
+      // Store clean token (without "Bearer " prefix)
+      const tokenRaw = data?.token || "";
+      const cleanToken = String(tokenRaw).startsWith("Bearer ")
+        ? tokenRaw.slice(7)
+        : tokenRaw;
+
+      localStorage.setItem("token", cleanToken);
       localStorage.setItem("user", JSON.stringify(data.user));
     }
 
@@ -85,7 +93,7 @@
       }
     }
 
-    /* ================= AUTO REDIRECT (SAFE) ================= */
+    /* ================= AUTO REDIRECT ================= */
     window.addEventListener("DOMContentLoaded", () => {
       const token = localStorage.getItem("token");
       const user = getUser();
@@ -101,6 +109,7 @@
 
     /* ================= REGISTER ================= */
     async function registerUser() {
+      setMsg("");
       const name = document.getElementById("name").value.trim();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
@@ -117,22 +126,24 @@
           body: JSON.stringify({ name, email, password })
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          setMsg(data.message || "Registration failed.");
+          setMsg(data.message || `Registration failed (Status ${res.status}).`);
           return;
         }
 
         setMsg("Registered successfully. Now login.");
+
       } catch (error) {
-        setMsg("Server connection failed.");
+        setMsg("Server connection failed: " + error.message);
         console.error(error);
       }
     }
 
     /* ================= LOGIN ================= */
     async function loginUser() {
+      setMsg("");
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
 
@@ -148,10 +159,15 @@
           body: JSON.stringify({ email, password })
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          setMsg(data.message || "Login failed.");
+          setMsg(data.message || `Login failed (Status ${res.status}).`);
+          return;
+        }
+
+        if (!data.token || !data.user) {
+          setMsg("Login response missing token/user. Check backend response.");
           return;
         }
 
@@ -164,7 +180,7 @@
         }
 
       } catch (error) {
-        setMsg("Server connection failed.");
+        setMsg("Server connection failed: " + error.message);
         console.error(error);
       }
     }
@@ -172,4 +188,3 @@
 
 </body>
 </html>
-

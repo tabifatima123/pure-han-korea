@@ -6,7 +6,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import connectDB from "./db.js";
+import connectDB from "../db.js";
 
 // Routes
 import authRoutes from "./routes/authRoutes.js";
@@ -28,7 +28,7 @@ const allowedOrigins = [
   "http://127.0.0.1:5501",
   "http://localhost:5501",
   "http://localhost:5000",
-  "https://peaceful-shortbread-aae4ee.netlify.app"
+  "https://peaceful-shortbread-aae4ee.netlify.app/"
 ];
 
 app.use(

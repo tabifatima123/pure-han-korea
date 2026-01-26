@@ -28,22 +28,29 @@ const allowedOrigins = [
   "http://127.0.0.1:5501",
   "http://localhost:5501",
   "http://localhost:5000",
-  "https://peaceful-shortbread-aae4ee.netlify.app/"
+  "https://peaceful-shortbread-aae4ee.netlify.app"
 ];
+
 
 app.use(
   cors({
-    origin: function (origin, cb) {
+    origin: (origin, cb) => {
       // allow requests with no origin (Postman, curl)
       if (!origin) return cb(null, true);
-      if (allowedOrigins.includes(origin)) return cb(null, true);
-      return cb(new Error("CORS blocked for origin: " + origin), false);
+
+      if (allowedOrigins.includes(origin)) {
+        return cb(null, true);
+      }
+
+      // ❗ DO NOT throw an error
+      return cb(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
 
 // Middleware
 app.use(express.json({ limit: "10mb" }));

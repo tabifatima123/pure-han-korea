@@ -13,7 +13,14 @@
 <div id="orders" class="space-y-4"></div>
 
 <script>
-const BASE_URL = "https://pure-han-korea-production.up.railway.app";
+const LOCAL_BACKEND = "http://localhost:5000";
+const PROD_BACKEND  = "https://pure-han-korea-production.up.railway.app"; // <-- your backend
+
+const BASE_URL =
+  (location.hostname === "127.0.0.1" || location.hostname === "localhost")
+    ? LOCAL_BACKEND
+    : PROD_BACKEND;
+
 const token = localStorage.getItem("token");
 
 if (!token) {

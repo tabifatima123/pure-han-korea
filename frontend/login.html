@@ -3,19 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <title>Pure Han Korea | Login</title>
-
-  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
 </head>
 
 <body class="bg-gray-100 min-h-screen flex items-center justify-center">
-
   <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
     <h1 class="text-2xl font-bold text-center text-red-600 mb-6">
       Pure Han Korea
     </h1>
 
-    <!-- Name (Register only) -->
     <input
       id="name"
       type="text"
@@ -23,7 +19,6 @@
       class="w-full mb-3 p-2 border rounded"
     />
 
-    <!-- Email -->
     <input
       id="email"
       type="email"
@@ -31,7 +26,6 @@
       class="w-full mb-3 p-2 border rounded"
     />
 
-    <!-- Password -->
     <input
       id="password"
       type="password"
@@ -39,7 +33,6 @@
       class="w-full mb-4 p-2 border rounded"
     />
 
-    <!-- Register -->
     <button
       type="button"
       onclick="registerUser()"
@@ -48,7 +41,6 @@
       Register
     </button>
 
-    <!-- Login -->
     <button
       type="button"
       onclick="loginUser()"
@@ -57,29 +49,37 @@
       Login
     </button>
 
-    <p
-      id="msg"
-      class="text-center mt-4 text-sm text-red-600 min-h-[1.25rem]"
-    ></p>
+    <p id="msg" class="text-center mt-4 text-sm text-red-600 min-h-[1.25rem]"></p>
   </div>
 
   <script>
     /* ================= CONFIG ================= */
-    // ✅ Use Railway (production backend)
-    const BASE_URL = "https://pure-han-korea-production.up.railway.app";
-    const API = `${BASE_URL}/api/auth`;
+    const LOCAL_BACKEND = "http://localhost:5000";
+const PROD_BACKEND  = "https://pure-han-korea-production.up.railway.app"; // <-- your backend
+
+const BASE_URL =
+  (location.hostname === "127.0.0.1" || location.hostname === "localhost")
+    ? LOCAL_BACKEND
+    : PROD_BACKEND;
+
+    const API_AUTH = `${BASE_URL}/api/auth`;
 
     /* ================= HELPERS ================= */
     function setMsg(text = "") {
       document.getElementById("msg").textContent = text;
     }
 
+    function clearAuth() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      sessionStorage.clear();
+    }
+
     function saveAuth(data) {
-      // Store clean token (without "Bearer " prefix)
       const tokenRaw = data?.token || "";
       const cleanToken = String(tokenRaw).startsWith("Bearer ")
         ? tokenRaw.slice(7)
-        : tokenRaw;
+        : String(tokenRaw).trim();
 
       localStorage.setItem("token", cleanToken);
       localStorage.setItem("user", JSON.stringify(data.user));
@@ -93,17 +93,36 @@
       }
     }
 
-    /* ================= AUTO REDIRECT ================= */
-    window.addEventListener("DOMContentLoaded", () => {
+    /* ================= AUTO REDIRECT (SAFE) ================= */
+    window.addEventListener("DOMContentLoaded", async () => {
       const token = localStorage.getItem("token");
       const user = getUser();
 
-      if (token && user && user.role) {
+      // No saved login => stay on login page
+      if (!token || !user || !user.role) return;
+
+      try {
+        // validate token using a protected endpoint
+        const res = await fetch(`${BASE_URL}/api/orders/my`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        // ✅ IMPORTANT: if response is not OK, do NOT redirect.
+        // Clear auth and stay on login page.
+        if (!res.ok) {
+          clearAuth();
+          return;
+        }
+
+        // Token valid => redirect based on role
         if (user.role === "admin") {
           window.location.href = "admin-products.html";
         } else {
           window.location.href = "index.html";
         }
+      } catch (e) {
+        // Backend unreachable => stay on login page
+        console.error("Token validation failed:", e);
       }
     });
 
@@ -120,7 +139,7 @@
       }
 
       try {
-        const res = await fetch(`${API}/register`, {
+        const res = await fetch(`${API_AUTH}/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, email, password })
@@ -134,7 +153,6 @@
         }
 
         setMsg("Registered successfully. Now login.");
-
       } catch (error) {
         setMsg("Server connection failed: " + error.message);
         console.error(error);
@@ -153,7 +171,7 @@
       }
 
       try {
-        const res = await fetch(`${API}/login`, {
+        const res = await fetch(`${API_AUTH}/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password })
@@ -178,13 +196,11 @@
         } else {
           window.location.href = "index.html";
         }
-
       } catch (error) {
         setMsg("Server connection failed: " + error.message);
         console.error(error);
       }
     }
   </script>
-
 </body>
 </html>

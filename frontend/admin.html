@@ -35,7 +35,15 @@
    Production (Railway): uses your deployed backend
    Local: use when you run backend locally
 */
-const BASE_URL = "https://pure-han-korea-production.up.railway.app";
+const LOCAL_BACKEND = "http://localhost:5000";
+const PROD_BACKEND  = "https://pure-han-korea-production.up.railway.app"; // <-- your backend
+
+const BASE_URL =
+  (location.hostname === "127.0.0.1" || location.hostname === "localhost")
+    ? LOCAL_BACKEND
+    : PROD_BACKEND;
+
+
 // const BASE_URL = "http://localhost:5000"; // <- enable this if you run locally
 
 const API_ORDERS = `${BASE_URL}/api/orders`;

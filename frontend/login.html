@@ -12,40 +12,22 @@
       Pure Han Korea
     </h1>
 
-    <input
-      id="name"
-      type="text"
-      placeholder="Name (only for register)"
-      class="w-full mb-3 p-2 border rounded"
-    />
+    <input id="name" type="text" placeholder="Name (only for register)"
+      class="w-full mb-3 p-2 border rounded" />
 
-    <input
-      id="email"
-      type="email"
-      placeholder="Email"
-      class="w-full mb-3 p-2 border rounded"
-    />
+    <input id="email" type="email" placeholder="Email"
+      class="w-full mb-3 p-2 border rounded" />
 
-    <input
-      id="password"
-      type="password"
-      placeholder="Password"
-      class="w-full mb-4 p-2 border rounded"
-    />
+    <input id="password" type="password" placeholder="Password"
+      class="w-full mb-4 p-2 border rounded" />
 
-    <button
-      type="button"
-      onclick="registerUser()"
-      class="w-full bg-black text-white py-2 rounded mb-3 hover:opacity-90"
-    >
+    <button type="button" onclick="registerUser()"
+      class="w-full bg-black text-white py-2 rounded mb-3 hover:opacity-90">
       Register
     </button>
 
-    <button
-      type="button"
-      onclick="loginUser()"
-      class="w-full bg-red-600 text-white py-2 rounded hover:opacity-90"
-    >
+    <button type="button" onclick="loginUser()"
+      class="w-full bg-red-600 text-white py-2 rounded hover:opacity-90">
       Login
     </button>
 
@@ -55,12 +37,12 @@
   <script>
     /* ================= CONFIG ================= */
     const LOCAL_BACKEND = "http://localhost:5000";
-const PROD_BACKEND  = "https://pure-han-korea-production.up.railway.app"; // <-- your backend
+    const PROD_BACKEND  = "https://pure-han-korea-production.up.railway.app";
 
-const BASE_URL =
-  (location.hostname === "127.0.0.1" || location.hostname === "localhost")
-    ? LOCAL_BACKEND
-    : PROD_BACKEND;
+    const BASE_URL =
+      (location.hostname === "127.0.0.1" || location.hostname === "localhost")
+        ? LOCAL_BACKEND
+        : PROD_BACKEND;
 
     const API_AUTH = `${BASE_URL}/api/auth`;
 
@@ -86,42 +68,43 @@ const BASE_URL =
     }
 
     function getUser() {
-      try {
-        return JSON.parse(localStorage.getItem("user"));
-      } catch {
-        return null;
+      try { return JSON.parse(localStorage.getItem("user")); }
+      catch { return null; }
+    }
+
+    function normRole(role) {
+      return String(role || "").trim().toLowerCase();
+    }
+
+    function redirectByRole(user) {
+      const role = normRole(user?.role);
+      if (role === "admin") {
+        window.location.href = "admin-products.html";
+      } else {
+        window.location.href = "index.html";
       }
     }
 
-    /* ================= AUTO REDIRECT (SAFE) ================= */
+    /* ================= AUTO REDIRECT ================= */
     window.addEventListener("DOMContentLoaded", async () => {
       const token = localStorage.getItem("token");
       const user = getUser();
 
-      // No saved login => stay on login page
-      if (!token || !user || !user.role) return;
+      if (!token || !user) return; // stay on login page
 
       try {
-        // validate token using a protected endpoint
         const res = await fetch(`${BASE_URL}/api/orders/my`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
-        // ✅ IMPORTANT: if response is not OK, do NOT redirect.
-        // Clear auth and stay on login page.
         if (!res.ok) {
           clearAuth();
           return;
         }
 
-        // Token valid => redirect based on role
-        if (user.role === "admin") {
-          window.location.href = "admin-products.html";
-        } else {
-          window.location.href = "index.html";
-        }
+        redirectByRole(user);
       } catch (e) {
-        // Backend unreachable => stay on login page
+        // backend unreachable => stay
         console.error("Token validation failed:", e);
       }
     });
@@ -146,7 +129,6 @@ const BASE_URL =
         });
 
         const data = await res.json().catch(() => ({}));
-
         if (!res.ok) {
           setMsg(data.message || `Registration failed (Status ${res.status}).`);
           return;
@@ -178,7 +160,6 @@ const BASE_URL =
         });
 
         const data = await res.json().catch(() => ({}));
-
         if (!res.ok) {
           setMsg(data.message || `Login failed (Status ${res.status}).`);
           return;
@@ -190,12 +171,8 @@ const BASE_URL =
         }
 
         saveAuth(data);
+        redirectByRole(data.user);
 
-        if (data.user.role === "admin") {
-          window.location.href = "admin-products.html";
-        } else {
-          window.location.href = "index.html";
-        }
       } catch (error) {
         setMsg("Server connection failed: " + error.message);
         console.error(error);
